@@ -29,7 +29,7 @@ Pour chaque recommandation susceptible de causer des grésillements sonores, l'a
 
 ## 🚀 Comment Lancer l'Application Web ?
 
-1. Ouvrez le dossier `c:\Users\Jorda\Desktop\gres`.
+1. Ouvrez le dossier du projet ou la page web dans votre navigateur.
 2. Double-cliquez sur **`index.html`** (s'ouvre dans n'importe quel navigateur Web).
 3. Cliquez sur le bouton bleu **"Activer le Moteur Audio Web"** pour démarrer le diagnostic automatique.
 
