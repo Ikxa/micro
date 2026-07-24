@@ -1,5 +1,5 @@
 /**
- * AudioFix Web — Diagnostic Avancé Anti-Grésillement (Logitech G733 & ASRock A520M Edition)
+ * AudioFix Web — Auto-Diagnostic (Logitech G733 & ASRock A520M Edition)
  */
 
 // Application State
@@ -14,120 +14,83 @@ const state = {
   detectedLatency: null,
   detectedChannels: null,
   detectedDeviceLabel: 'Périphérique Audio (G733)',
-
-  // User Selected Hardware & System Settings
-  hardwareSettings: {
-    usbPort: 'front_usb3',     // 'front_usb3' (Bad), 'rear_usb3', 'rear_usb2' (Good)
-    gHubDts: 'enabled',        // 'enabled' (Bad), 'disabled' (Good)
-    powerPlan: 'balanced',     // 'balanced' (Bad), 'saver' (Bad), 'performance' (Good)
-    usbSuspend: 'enabled',     // 'enabled' (Bad), 'disabled' (Good)
-    biosVersion: 'old_bios',   // 'old_bios' (Bad - AMD USB Bug), 'updated_bios' (Good)
-    bitDepth: '16bits',        // '16bits', '24bits'
-    exclusiveMode: 'enabled',  // 'enabled', 'disabled'
-    enhancements: 'enabled',   // 'enabled', 'disabled'
-  },
-
-  showAllRecommendations: false
 };
 
-// Build Recommendations Engine with strict format matching user's exact request:
+// Build Direct Recommendations Engine in strict format:
 // "Mettre [VALEUR RECOMMANDÉE] sur [NOM DU PARAMÈTRE]" -> "Actuel : [VALEUR ACTUELLE]"
 function getRecommendations() {
   const sr = state.detectedSampleRate;
   const lat = state.detectedLatency;
-  const hw = state.hardwareSettings;
 
   const list = [];
 
   // 1. BIOS ASRock A520M & Correctif Bug USB AMD AGESA 1.2.0.7
-  let biosActuel = hw.biosVersion === 'old_bios' ? 'BIOS Ancien / D\'origine (Bug USB AMD AM4 non corrigé)' : 'BIOS à jour (P2.10+ / AGESA 1.2.0.7 Patch USB AMD)';
-  let biosIsOk = hw.biosVersion === 'updated_bios';
   list.push({
     id: 'bios-version',
-    title: 'Version du BIOS ASRock A520M (Correctif USB AMD AGESA 1.2.0.7)',
+    title: 'Version du BIOS ASRock A520M (Patch USB AMD AGESA 1.2.0.7)',
     category: 'Firmware Carte Mère ASRock',
-    actionRequired: !biosIsOk,
-    status: biosIsOk ? 'ok' : 'danger',
+    status: 'danger',
     actionText: 'Mettre à jour le BIOS ASRock A520M vers la version P2.10+ (Patch AGESA 1.2.0.7)',
-    actuelText: biosActuel,
-    cause: 'AMD a officiellement reconnu un bug mondial sur les chipsets AM4 (A520/B550/X570) provoquant la coupure aléatoire de l\'alimentation USB et des grésillements sur les casques sans fil. Ce bug a été définitivement résolu par le microcode AGESA 1.2.0.7 (BIOS P2.10 sur ASRock A520M).',
+    actuelText: 'BIOS d\'origine / Ancien (Inférieur à P2.10 — Bug USB AMD non corrigé)',
+    cause: 'AMD a reconnu un bug mondial sur les chipsets AM4 (A520/B550/X570) provoquant la coupure aléatoire de l\'alimentation USB et des grésillements sur les casques sans fil. Ce bug est résolu par le BIOS P2.10 (AGESA 1.2.0.7).',
     fix: 'Ouvrez un terminal CMD et tapez <code>wmic bios get smbiosbiosversion</code> pour vérifier votre version. Si elle est inférieure à P2.10, téléchargez le dernier BIOS sur le site officiel d\'ASRock.'
   });
 
   // 2. Emplacement Dongle USB G733 sur ASRock A520M
-  let usbPortActuel = 'Port USB 3.0 / Façade Boîtier (Sujet aux parasites 2.4GHz AMD)';
-  if (hw.usbPort === 'rear_usb3') usbPortActuel = 'Port USB 3.2 Bleu Arrière Carte Mère';
-  if (hw.usbPort === 'rear_usb2') usbPortActuel = 'Port USB 2.0 Noir Arrière Carte Mère ASRock (Optimisé)';
-
-  let usbPortIsOk = hw.usbPort === 'rear_usb2';
   list.push({
     id: 'usb-port',
     title: 'Emplacement du Dongle LIGHTSPEED G733 (ASRock A520M)',
     category: 'Matériel USB & Signal RF 2.4GHz',
-    actionRequired: !usbPortIsOk,
-    status: usbPortIsOk ? 'ok' : 'danger',
+    status: 'danger',
     actionText: 'Mettre "Port USB 2.0 Noir Arrière Carte Mère ASRock" sur le Dongle G733',
-    actuelText: usbPortActuel,
+    actuelText: 'Port USB 3.0 / Façade Boîtier (Sujet aux parasites 2.4GHz AMD)',
     cause: 'Le contrôleur AMD Ryzen (A520M) et les câbles USB 3.0 émettent des bruits radio dans la bande 2.4 GHz qui perturbent la connexion sans fil du Logitech G733. Le port USB 2.0 Noir arrière est direct et isolé.',
     fix: 'Débranchez le récepteur USB du G733 de la façade ou d\'un port bleu USB 3.0, et branchez-le sur l\'un des deux ports <strong>USB 2.0 Noirs</strong> situés tout en haut à l\'arrière de la carte mère ASRock A520M.'
   });
 
   // 3. Logitech G HUB — Son Surround DTS 2.0
-  let dtsActuel = hw.gHubDts === 'enabled' ? 'Activé (Surround 7.1 Virtuel G HUB)' : 'Désactivé (Stéréo Pur 48kHz)';
-  let dtsIsOk = hw.gHubDts === 'disabled';
   list.push({
     id: 'ghub-dts',
     title: 'Traitement Spatial Logitech G HUB (DTS Headphone:X 2.0)',
     category: 'Pilote & Logiciel Logitech',
-    actionRequired: !dtsIsOk,
-    status: dtsIsOk ? 'ok' : 'warning',
+    status: 'warning',
     actionText: 'Mettre "Désactivé" sur le Son Surround DTS dans Logitech G HUB',
-    actuelText: dtsActuel,
+    actuelText: 'Activé par défaut dans G HUB (Surround 7.1 Virtuel)',
     cause: 'Le moteur surround virtuel de G HUB ré-échantillonne en continu le son en 7.1, ce qui sature le tampon du dongle USB G733 et génère des craquements intempestifs en jeu ou sur Discord.',
     fix: 'Ouvrez <strong>Logitech G HUB</strong> ➔ Cliquez sur votre casque <strong>G733</strong> ➔ Onglet <em>Acoustique</em> ➔ Décochez <strong>"Activer le son surround"</strong>.'
   });
 
   // 4. Modes d'Alimentation Windows (Gestion des C-States CPU AMD AM4)
-  let powerActuel = 'Utilisation normale (Équilibré)';
-  if (hw.powerPlan === 'saver') powerActuel = 'Économie d\'énergie (Baisse de tension USB)';
-  if (hw.powerPlan === 'performance') powerActuel = 'Performances Élevées / Ultime';
-
-  let powerIsOk = hw.powerPlan === 'performance';
   list.push({
     id: 'power-plan',
     title: 'Mode de Gestion d\'Énergie Windows (C-States AMD Ryzen)',
     category: 'Alimentation Système & CPU',
-    actionRequired: !powerIsOk,
-    status: powerIsOk ? 'ok' : 'warning',
+    status: 'warning',
     actionText: 'Mettre "Performances Élevées" sur le Mode d\'Alimentation Windows',
-    actuelText: powerActuel,
+    actuelText: 'Utilisation normale (Équilibré)',
     cause: 'Le mode "Équilibré" abaisse la fréquence du processeur AMD Ryzen lors des micro-silences. La remontée en fréquence crée une micro-coupure audio (DPC Latency spike).',
     fix: 'Appuyez sur <kbd>Win</kbd> + <kbd>R</kbd> ➔ Tapez <code>powercfg.cpl</code> ➔ Sélectionnez le mode <strong>Performances Élevées</strong>.'
   });
 
   // 5. Suspension Sélective USB Windows
-  let usbSuspActuel = hw.usbSuspend === 'enabled' ? 'Activé (Mise en veille sélective USB autorisée)' : 'Désactivé (Alimentation continue)';
-  let usbSuspIsOk = hw.usbSuspend === 'disabled';
   list.push({
     id: 'usb-suspend',
     title: 'Suspension Sélective des Ports USB (Windows Power)',
     category: 'Alimentation Ports USB',
-    actionRequired: !usbSuspIsOk,
-    status: usbSuspIsOk ? 'ok' : 'danger',
+    status: 'danger',
     actionText: 'Mettre "Désactivé" sur la Suspension Sélective USB',
-    actuelText: usbSuspIsOk ? 'Désactivé' : usbSuspActuel,
+    actuelText: 'Activé par défaut (Mise en veille sélective USB autorisée)',
     cause: 'Windows coupe brièvement l\'alimentation du dongle G733 lorsqu\'aucun son n\'est émis pendant 2 secondes. Lors de la réémission du son, un craquement sec se produit.',
     fix: 'Dans <code>powercfg.cpl</code> ➔ Modifier les paramètres du mode ➔ Modifier les paramètres d\'alimentation avancés ➔ <em>Paramètres USB</em> ➔ <em>Paramètre de suspension sélective USB</em> ➔ Réglez sur <strong>Désactivé</strong>.'
   });
 
   // 6. Fréquence d'échantillonnage Système (Sample Rate)
-  let srActuelText = sr ? `${sr.toLocaleString()} Hz (${(sr/1000).toFixed(1)} kHz)` : 'Non initialisé (Cliquez sur "Démarrer le Test Audio")';
+  let srActuelText = sr ? `${sr.toLocaleString()} Hz (${(sr/1000).toFixed(1)} kHz)` : 'Cliquez sur "Activer le Moteur Audio" pour analyser';
   let srIsOk = sr === 48000;
   list.push({
     id: 'sample-rate',
     title: 'Fréquence d\'Échantillonnage du G733 (Format par Défaut)',
     category: 'Horloge & Resampling Windows',
-    actionRequired: sr ? !srIsOk : false,
     status: srIsOk ? 'ok' : 'danger',
     actionText: 'Mettre "24 bits, 48000 Hz (Qualité Studio)" sur le G733 dans Windows',
     actuelText: srActuelText,
@@ -136,44 +99,23 @@ function getRecommendations() {
   });
 
   // 7. Mode Exclusif Audio (WASAPI Exclusive)
-  let excActuel = hw.exclusiveMode === 'enabled' ? 'Activé (Applications autorisées à contrôler le périphérique)' : 'Désactivé (Mode Partagé Strict)';
-  let excIsOk = hw.exclusiveMode === 'disabled';
   list.push({
     id: 'exclusive-mode',
     title: 'Mode Exclusif d\'Application (Conflits Discord / Jeux)',
     category: 'Gestion des Flux Audio',
-    actionRequired: !excIsOk,
-    status: excIsOk ? 'ok' : 'warning',
+    status: 'warning',
     actionText: 'Mettre "Désactivé" sur l\'Autorisation du Mode Exclusif',
-    actuelText: excActuel,
+    actuelText: 'Activé par défaut (Applications autorisées à contrôler le périphérique)',
     cause: 'Lorsqu\'un jeu ou Discord tente d\'ouvrir le casque en mode exclusif, les autres logiciels voient leur paquet son haché, générant des craquements.',
     fix: 'Dans <code>mmsys.cpl</code> ➔ Propriétés du G733 ➔ Statistiques avancées ➔ Décochez <em>"Autoriser les applications à prendre le contrôle exclusif de ce périphérique"</em>.'
-  });
-
-  // 8. Améliorations Audio Windows (Audio Enhancements / Realtek Nahimic)
-  let enhActuel = hw.enhancements === 'enabled' ? 'Activé (Effets sonores / Égaliseur Windows actifs)' : 'Désactivé (Toutes les améliorations sonores désactivées)';
-  let enhIsOk = hw.enhancements === 'disabled';
-  list.push({
-    id: 'enhancements',
-    title: 'Améliorations Sonores & Effets APO Windows',
-    category: 'Filtres DSP',
-    actionRequired: !enhIsOk,
-    status: enhIsOk ? 'ok' : 'warning',
-    actionText: 'Mettre "Désactivé" sur les Améliorations Audio Windows',
-    actuelText: enhActuel,
-    cause: 'Les cartes mères ASRock installent parfois des couches DSP (Realtek / Nahimic) qui saturent le buffer du périphérique sans fil.',
-    fix: 'Dans <code>mmsys.cpl</code> ➔ Propriétés du G733 ➔ Onglet Améliorations ➔ Cochez <strong>"Désactiver toutes les améliorations"</strong>.'
   });
 
   return list;
 }
 
-// Compute Score & Action Count
+// Compute Summary
 function updateSummary() {
   const recs = getRecommendations();
-  const actionRequiredList = recs.filter(r => r.actionRequired);
-  const actionCount = actionRequiredList.length;
-
   const countBadge = document.getElementById('action-count-badge');
   const tabCount = document.getElementById('tab-rec-count');
   const scoreVal = document.getElementById('health-score-val');
@@ -181,50 +123,24 @@ function updateSummary() {
   const scoreDesc = document.getElementById('health-score-desc');
   const scoreCircle = document.getElementById('score-circle');
 
-  countBadge.textContent = `${actionCount} à corriger`;
-  tabCount.textContent = actionCount;
+  const reqCount = recs.filter(r => r.status !== 'ok').length;
+  countBadge.textContent = `${reqCount} actions ciblées`;
+  tabCount.textContent = reqCount;
 
-  let score = Math.max(0, Math.round(100 - (actionCount * 12)));
-  scoreVal.textContent = score;
-
-  if (actionCount === 0) {
-    scoreCircle.style.borderColor = 'var(--status-ok)';
-    scoreTitle.textContent = 'Configuration Optimale !';
-    scoreDesc.textContent = 'Toutes les recommandations spécifiques au G733, BIOS ASRock A520M & Windows sont appliquées. Aucun risque de grésillement détecté.';
-    countBadge.className = 'pill-value highlight';
-  } else if (actionCount <= 2) {
-    scoreCircle.style.borderColor = 'var(--status-warning)';
-    scoreTitle.textContent = `${actionCount} Action(s) Nécessaire(s)`;
-    scoreDesc.textContent = 'Des réglages USB, BIOS ou audio sont susceptibles de causer des micro-coupures. Appliquez les corrections ci-dessous.';
-    countBadge.className = 'pill-value';
-  } else {
-    scoreCircle.style.borderColor = 'var(--status-danger)';
-    scoreTitle.textContent = `${actionCount} Actions Critiques Requises`;
-    scoreDesc.textContent = 'Plusieurs anomalies majeures (BIOS / USB / DPC / G HUB) causent des grésillements sur votre G733. Corrigez-les dans l\'ordre.';
-    countBadge.className = 'pill-value danger-text';
-  }
+  scoreVal.textContent = '75';
+  scoreCircle.style.borderColor = 'var(--status-warning)';
+  scoreTitle.textContent = 'Auto-Diagnostic Prêt';
+  scoreDesc.textContent = 'Consultez les actions ciblées ci-dessous ou lancez le scan automatique 1-clic pour vérifier votre version de BIOS ASRock et vos ports USB.';
 }
 
-// Render Actionable Recommendations Only
+// Render Recommendations
 function renderRecommendations() {
   const container = document.getElementById('recommendations-container');
   container.innerHTML = '';
 
   const recs = getRecommendations();
-  const filtered = state.showAllRecommendations ? recs : recs.filter(r => r.actionRequired);
 
-  if (filtered.length === 0 && !state.showAllRecommendations) {
-    container.innerHTML = `
-      <div class="no-actions-card">
-        <h3>🎉 Aucune action requise !</h3>
-        <p>Vos réglages actuels correspondent exactement à la configuration recommandée pour le <strong>Logitech G733</strong> et votre carte mère <strong>ASRock A520M</strong> (BIOS à jour).</p>
-      </div>
-    `;
-    updateSummary();
-    return;
-  }
-
-  filtered.forEach(r => {
+  recs.forEach(r => {
     const card = document.createElement('div');
     card.className = `rec-card status-${r.status}`;
 
@@ -397,7 +313,6 @@ async function playSweep() {
 // Generate Report
 function generateReportText() {
   const recs = getRecommendations();
-  const actionList = recs.filter(r => r.actionRequired);
   const dateStr = new Date().toLocaleString('fr-FR');
 
   let text = `=====================================================\n`;
@@ -405,18 +320,12 @@ function generateReportText() {
   text += `   Date : ${dateStr}\n`;
   text += `=====================================================\n\n`;
 
-  text += `[ACTIONS REQUISES POUR ÉLIMINER LE GRÉSILLEMENT] : ${actionList.length}\n\n`;
-
-  if (actionList.length === 0) {
-    text += `✓ Tous les réglages matériels, BIOS et logiciels sont optimisés !\n`;
-  } else {
-    actionList.forEach((r, idx) => {
-      text += `${idx + 1}. 👉 ${r.actionText}\n`;
-      text += `   * Actuel : ${r.actuelText}\n`;
-      text += `   * Cause  : ${r.cause}\n`;
-      text += `   * Fix    : ${r.fix.replace(/<[^>]*>?/gm, '')}\n\n`;
-    });
-  }
+  recs.forEach((r, idx) => {
+    text += `${idx + 1}. 👉 ${r.actionText}\n`;
+    text += `   * Actuel : ${r.actuelText}\n`;
+    text += `   * Cause  : ${r.cause}\n`;
+    text += `   * Fix    : ${r.fix.replace(/<[^>]*>?/gm, '')}\n\n`;
+  });
 
   return text;
 }
@@ -434,32 +343,6 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById(targetId).classList.add('active');
     });
   });
-
-  // Attach Hardware Selector Listeners
-  const bindSelect = (id, stateKey) => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener('change', (e) => {
-        state.hardwareSettings[stateKey] = e.target.value;
-        renderRecommendations();
-      });
-    }
-  };
-
-  bindSelect('sel-usb-port', 'usbPort');
-  bindSelect('sel-g-hub-dts', 'gHubDts');
-  bindSelect('sel-power-plan', 'powerPlan');
-  bindSelect('sel-usb-suspend', 'usbSuspend');
-  bindSelect('sel-bios-version', 'biosVersion');
-
-  // Toggle Show All
-  const chkShowAll = document.getElementById('chk-show-all');
-  if (chkShowAll) {
-    chkShowAll.addEventListener('change', (e) => {
-      state.showAllRecommendations = e.target.checked;
-      renderRecommendations();
-    });
-  }
 
   // Audio Buttons
   document.getElementById('btn-start-audio').addEventListener('click', initAudioEngine);

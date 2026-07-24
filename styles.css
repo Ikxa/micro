@@ -1,5 +1,5 @@
 /* ==========================================================================
-   AudioFix Web — Modern & Responsive Design System (G733 & ASRock Edition)
+   AudioFix Web — Modern & Responsive Auto-Diagnostic Design System
    ========================================================================== */
 
 :root {
@@ -50,7 +50,7 @@ body {
 }
 
 .app-container {
-  max-width: 1200px;
+  max-width: 1150px;
   margin: 0 auto;
   padding: 20px 16px;
 }
@@ -170,7 +170,7 @@ body {
   display: grid;
   grid-template-columns: 260px 1fr;
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 @media (max-width: 820px) {
@@ -260,54 +260,44 @@ body {
   color: var(--status-danger);
 }
 
-/* Hardware Profile Checklist Panel */
-.hardware-profile-card {
-  background: rgba(139, 92, 246, 0.08);
-  border: 1px solid rgba(139, 92, 246, 0.25);
+/* Auto Scan Card (1-Click Powershell Banner) */
+.auto-scan-card {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.08), rgba(139, 92, 246, 0.08));
+  border: 1px solid rgba(6, 182, 212, 0.3);
   border-radius: var(--radius-md);
   padding: 16px;
   margin-bottom: 20px;
 }
 
-.profile-header h3 {
-  font-size: 1rem;
+.scan-info h3 {
+  font-size: 0.98rem;
   margin-bottom: 4px;
+  color: var(--accent-cyan);
 }
 
-.profile-header p {
-  font-size: 0.82rem;
+.scan-info p {
+  font-size: 0.83rem;
   color: var(--text-secondary);
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
-.profile-selectors-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 12px;
-}
-
-.selector-item label {
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-  display: block;
-  margin-bottom: 4px;
-  font-weight: 600;
-}
-
-.selector-item select {
-  width: 100%;
-  padding: 8px 10px;
-  background: var(--bg-input);
-  color: var(--text-primary);
+.code-box-large {
+  background: #040710;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
-  font-family: inherit;
-  font-size: 0.83rem;
-  outline: none;
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.selector-item select:focus {
-  border-color: var(--accent-cyan);
+.code-box-large code {
+  font-family: var(--font-mono);
+  color: #38bdf8;
+  font-size: 0.88rem;
+  word-break: break-all;
 }
 
 /* Tabs */
@@ -356,30 +346,16 @@ body {
 }
 
 .filter-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   margin-bottom: 16px;
-  flex-wrap: wrap;
-  gap: 10px;
 }
 
 .filter-header h2 {
-  font-size: 1.2rem;
+  font-size: 1.15rem;
 }
 
 .filter-header p {
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   color: var(--text-secondary);
-}
-
-.toggle-ok-container label {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 /* Action Cards */
@@ -463,17 +439,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-family: var(--font-sans);
 }
 
 .strict-line-action {
   font-size: 0.95rem;
   font-weight: 700;
   color: #38bdf8;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
 }
 
 .strict-line-actuel {
@@ -503,21 +474,6 @@ body {
 .rec-fix code {
   color: var(--accent-cyan);
   font-family: var(--font-mono);
-}
-
-/* No Actions Card */
-.no-actions-card {
-  background: var(--bg-card);
-  border: 1px solid var(--status-ok);
-  border-radius: var(--radius-md);
-  padding: 30px;
-  text-align: center;
-}
-
-.no-actions-card h3 {
-  color: var(--status-ok);
-  font-size: 1.2rem;
-  margin-bottom: 6px;
 }
 
 /* Test Grid & Visualizer */
@@ -641,15 +597,6 @@ input[type="range"] {
   border-radius: 4px;
   font-size: 0.72rem;
   cursor: pointer;
-}
-
-.guide-tip {
-  background: rgba(139, 92, 246, 0.12);
-  border-left: 3px solid var(--accent-violet);
-  padding: 6px 10px;
-  font-size: 0.8rem;
-  margin-top: 6px;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 kbd {
