@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AudioFix Web — Diagnostic Audio Auto (Logitech G733 & ASRock A520M)</title>
-  <meta name="description" content="Diagnostic audio 100% automatique pour Logitech G733 et ASRock A520M. Résolvez les grésillements USB et bugs BIOS AMD.">
+  <title>AudioFix Web — Analyseur de Logs Windows & Latence DPC</title>
+  <meta name="description" content="Analyseur de journaux d'événements Windows (Event Viewer) et testeur de latence DPC style LatencyMon pour éliminer les grésillements audio.">
   <link rel="stylesheet" href="styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,68 +24,48 @@
           </svg>
         </div>
         <div>
-          <h1>AudioFix <span class="badge-web">Auto-Diagnostic Edition</span></h1>
-          <p class="subtitle">Diagnostic Automatique Anti-Grésillement pour Logitech G733 & ASRock A520M</p>
+          <h1>AudioFix <span class="badge-web">Logs & LatencyMon Edition</span></h1>
+          <p class="subtitle">Analyseur de Journaux d'Événements Windows & Latence DPC/ISR</p>
         </div>
       </div>
 
       <div class="header-actions">
         <button id="btn-start-audio" class="btn btn-primary">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-          Activer le Moteur Audio Web
+          Démarrer le Test Audio Web
         </button>
         <button id="btn-export-report" class="btn btn-secondary">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          Exporter le Bilan
+          Exporter le Rapport
         </button>
       </div>
     </header>
 
-    <!-- Top Summary Banner -->
-    <section class="summary-banner">
-      <div class="score-card">
-        <div class="score-circle" id="score-circle">
-          <span id="health-score-val">--</span>
-          <small>/ 100</small>
-        </div>
-        <div class="score-info">
-          <h3 id="health-score-title">Analyse Automatique Active</h3>
-          <p id="health-score-desc">Les paramètres audio système sont analysés en temps réel. Suivez les recommandations ci-dessous pour corriger les anomalies.</p>
-        </div>
-      </div>
-
-      <div class="live-status-pills">
-        <div class="pill">
-          <span class="pill-label">Fréquence Détectée</span>
-          <span class="pill-value highlight" id="detected-sample-rate">Cliquez sur Activer</span>
-        </div>
-        <div class="pill">
-          <span class="pill-label">Latence Tampon</span>
-          <span class="pill-value" id="detected-latency">-- ms</span>
-        </div>
-        <div class="pill">
-          <span class="pill-label">Périphérique Détecté</span>
-          <span class="pill-value" id="detected-output-device">Casque / Logitech G733</span>
-        </div>
-        <div class="pill">
-          <span class="pill-label">Actions Nécessaires</span>
-          <span class="pill-value danger-text" id="action-count-badge">Analyse...</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- 1-Click Scanner Banner (Powershell Instant Scanner) -->
+    <!-- Scanner Command Card -->
     <section class="auto-scan-card">
       <div class="scan-info">
-        <h3>🔍 Scan Automatique Windows (BIOS, USB, Pilotes AMD & G733)</h3>
-        <p>Pour détecter automatiquement votre version de BIOS ASRock, vos contrôleurs USB et votre plan d'alimentation sans aucun menu déroulant, copiez et collez cette commande dans un terminal (<kbd>cmd</kbd> ou PowerShell) :</p>
+        <h3>🔍 Scan Automatique des Logs Windows & Latence DPC (Style LatencyMon)</h3>
+        <p>Ce script analyse les journaux d'événements Windows (AudioSrv Event ID 2005/2006, déconnexions USB Kernel-PnP) et mesure le pic de latence DPC de vos pilotes en 3 secondes :</p>
       </div>
       <div class="code-box-large">
         <code>powershell -c "irm https://ikxa.github.io/micro/scan.ps1 | iex"</code>
-        <button class="btn btn-primary btn-copy" onclick="navigator.clipboard.writeText('powershell -c &quot;irm https://ikxa.github.io/micro/scan.ps1 | iex&quot;').then(()=>alert('Commande de scan copiée ! Ouvrez PowerShell et collez-la.'))">
+        <button class="btn btn-primary btn-copy" onclick="navigator.clipboard.writeText('powershell -c &quot;irm https://ikxa.github.io/micro/scan.ps1 | iex&quot;').then(()=>alert('Commande de scan des logs copiée ! Ouvrez PowerShell et collez-la.'))">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
-          Copier la Commande de Scan Windows
+          Copier la Commande de Scan des Logs
         </button>
+      </div>
+    </section>
+
+    <!-- File Upload / Import Section -->
+    <section class="import-section-card">
+      <div class="import-header">
+        <h3>📄 Charger le Rapport de Logs <code>audio_glitch_report.json</code></h3>
+        <p>Glissez-déposez le fichier de rapport généré par le scan ou cliquez pour le sélectionner et afficher le diagnostic instantané sur le web.</p>
+      </div>
+      <div class="drop-zone" id="drop-zone">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="36" height="36"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        <p>Glissez votre fichier <code>audio_glitch_report.json</code> ici ou <label for="file-input" class="btn-link">parcourez vos fichiers</label></p>
+        <input type="file" id="file-input" accept=".json" style="display:none;">
       </div>
     </section>
 
@@ -93,33 +73,29 @@
     <nav class="nav-tabs">
       <button class="tab-btn active" data-tab="recommendations">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-        Recommandations Nécessaires (<span id="tab-rec-count">0</span>)
+        Anomalies Logs & DPC (<span id="tab-rec-count">0</span>)
       </button>
       <button class="tab-btn" data-tab="sound-test">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
-        Banc d'Essai Audio
-      </button>
-      <button class="tab-btn" data-tab="windows-guide">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
-        Guide Pas-à-Pas
+        Banc d'Essai Jitter Web
       </button>
     </nav>
 
-    <!-- Tab 1: Direct Actionable Recommendations -->
+    <!-- Tab 1: Recommendations based on Windows Event Logs & DPC Latency -->
     <main id="tab-recommendations" class="tab-content active">
       <div class="filter-header">
         <div>
-          <h2>Actions Nécessaires pour Éliminer les Grésillements</h2>
-          <p>Voici les modifications matérielles et Windows ciblées pour corriger le son haché et les craquements.</p>
+          <h2>Diagnostic d'après les Journaux Windows & Latence DPC</h2>
+          <p>Chaque anomalie trouvée dans les logs Windows ou la latence DPC est affichée avec la correction requise.</p>
         </div>
       </div>
 
       <div class="recommendations-grid" id="recommendations-container">
-        <!-- Dynamic Recommendations -->
+        <!-- Dynamic Recommendation Cards -->
       </div>
     </main>
 
-    <!-- Tab 2: Sound Test -->
+    <!-- Tab 2: Sound Test & Web Jitter -->
     <div id="tab-sound-test" class="tab-content">
       <div class="test-grid">
         <div class="card visualizer-card">
@@ -151,53 +127,11 @@
       </div>
     </div>
 
-    <!-- Tab 3: Windows Guide -->
-    <div id="tab-windows-guide" class="tab-content">
-      <div class="windows-guide-grid">
-        <div class="guide-card">
-          <div class="step-number">1</div>
-          <div class="step-body">
-            <h3>Port USB Arrière ASRock A520M (USB 2.0 Noir)</h3>
-            <p>Brancher le dongle G733 sur un port <strong>USB 2.0 Noir</strong> à l'arrière de la carte mère. Évitez les ports USB 3.0/3.2 (Bleu) qui génèrent des interférences 2.4 GHz perturbant la liaison sans fil LIGHTSPEED.</p>
-          </div>
-        </div>
-
-        <div class="guide-card">
-          <div class="step-number">2</div>
-          <div class="step-body">
-            <h3>Désactiver la Suspension Sélective USB Windows</h3>
-            <p>Appuyez sur <kbd>Win</kbd> + <kbd>R</kbd>, tapez :</p>
-            <div class="code-box">
-              <code>powercfg.cpl</code>
-              <button class="btn-copy" onclick="navigator.clipboard.writeText('powercfg.cpl')">Copier</button>
-            </div>
-            <p style="margin-top:8px;">Modifiez le mode ➔ <strong>Modifier les paramètres d'alimentation avancés</strong> ➔ <em>Paramètres USB</em> ➔ <em>Paramètre de suspension sélective USB</em> ➔ Réglez sur <strong>Désactivé</strong>.</p>
-          </div>
-        </div>
-
-        <div class="guide-card">
-          <div class="step-number">3</div>
-          <div class="step-body">
-            <h3>Désactiver le Surround DTS dans Logitech G HUB</h3>
-            <p>Ouvrez Logitech G HUB ➔ Cliquez sur votre casque G733 ➔ Onglet Acoustique ➔ Décochez <strong>Activer le son surround</strong>.</p>
-          </div>
-        </div>
-
-        <div class="guide-card">
-          <div class="step-number">4</div>
-          <div class="step-body">
-            <h3>Format Audio Windows (24 bits, 48000 Hz)</h3>
-            <p>Appuyez sur <kbd>Win</kbd> + <kbd>R</kbd>, tapez <code>mmsys.cpl</code>. Dans les propriétés du Logitech G733, règlez sur <strong>24 bits, 48000 Hz (Qualité Studio)</strong> et décochez le Mode Exclusif.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Modal Report -->
     <div id="modal-report" class="modal">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>Bilan de Diagnostic Audio G733 & ASRock</h3>
+          <h3>Rapport d'Analyse Logs Windows & DPC</h3>
           <button class="modal-close" id="btn-close-modal">&times;</button>
         </div>
         <div class="modal-body">
@@ -211,7 +145,7 @@
     </div>
 
     <footer class="app-footer">
-      <p>AudioFix Auto Edition &bull; Diagnostic automatique pour Logitech G733 & ASRock A520M</p>
+      <p>AudioFix Logs Edition &bull; Analyseur de Journaux d'Événements Windows & Latence DPC LatencyMon</p>
     </footer>
   </div>
 

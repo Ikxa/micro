@@ -1,0 +1,27 @@
+﻿{
+    "usbResetCount":  50,
+    "maxDpcJitterUs":  21040,
+    "eventGlitchCount":  0,
+    "timestamp":  "2026-07-27 01:12:20",
+    "findings":  [
+                     {
+                         "cause":  "Le gestionnaire PnP de Windows reinitialise le pilote USB lors des baisses de tension ou des micro-mises en veille.",
+                         "fix":  "Allez dans powercfg.cpl -\u003e Parametres meil -\u003e Parametres USB -\u003e Suspension selective USB -\u003e Desactive.",
+                         "actuelText":  "50 deconnexions/reinitialisations USB consignees par le noyau Windows",
+                         "actionText":  "Mettre \u0027Desactive\u0027 sur la Suspension Selective USB et brancher sur Port USB 2.0 Arriere",
+                         "category":  "Journaux d\u0027Evenements Systeme (PnP)",
+                         "title":  "Reinitialisations / Deconnexions de Peripheriques USB (Kernel-PnP)",
+                         "status":  "warning"
+                     },
+                     {
+                         "cause":  "Des pilotes systeme (souvent Wi-Fi, Carte Graphique NVIDIA ou Carte Mere AMD) retardent le traitement du flux audio WASAPI.",
+                         "fix":  "Passez le plan d\u0027alimentation en \u0027Performances Elevees\u0027 et mettez a jour les pilotes reseau/graphique.",
+                         "actuelText":  "Latence DPC Max : 21.04 ms (\u003e 2.0 ms = Risque majeur de gresillements)",
+                         "actionText":  "Mettre \u0027Performances Elevees\u0027 et desactiver les cartes reseau/HDMI inutilisees",
+                         "category":  "Latence Temps Reel et Interruption Pilote",
+                         "title":  "Pics de Latence DPC Detectes (Style LatencyMon)",
+                         "status":  "danger"
+                     }
+                 ],
+    "dpcStatus":  "HIGH"
+}

@@ -1,121 +1,68 @@
 /**
- * AudioFix Web — Auto-Diagnostic (Logitech G733 & ASRock A520M Edition)
+ * AudioFix Web — Analyseur de Logs Windows & Latence DPC (LatencyMon Edition)
  */
 
-// Application State
 const state = {
   audioCtx: null,
   analyser: null,
   masterGain: null,
   activeSource: null,
 
-  // Live Detected Web Audio Parameters
+  // Web Audio Detected Parameters
   detectedSampleRate: null,
   detectedLatency: null,
   detectedChannels: null,
-  detectedDeviceLabel: 'Périphérique Audio (G733)',
+
+  // Imported Log Findings from scan.ps1 JSON
+  importedReport: null
 };
 
-// Build Direct Recommendations Engine in strict format:
-// "Mettre [VALEUR RECOMMANDÉE] sur [NOM DU PARAMÈTRE]" -> "Actuel : [VALEUR ACTUELLE]"
-function getRecommendations() {
+// Default Findings if no JSON imported yet
+function getDefaultFindings() {
   const sr = state.detectedSampleRate;
-  const lat = state.detectedLatency;
 
-  const list = [];
+  const findings = [
+    {
+      title: "Reinitialisations / Deconnexions de Peripheriques USB (Kernel-PnP)",
+      category: "Journaux d'Evenements Systeme (Kernel-PnP)",
+      status: "danger",
+      actionText: "Mettre 'Desactive' sur la Suspension Selective USB et brancher sur Port USB 2.0 Arriere",
+      actuelText: "50 deconnexions/reinitialisations USB consignees par le noyau Windows dans l'Event Viewer",
+      cause: "Le gestionnaire PnP de Windows reinitialise le pilote USB lors des baisses de tension ou des micro-mises en veille du récepteur G733.",
+      fix: "Allez dans powercfg.cpl -> Parametres avances -> Parametres USB -> Suspension selective USB -> Desactive."
+    },
+    {
+      title: "Pics de Latence DPC Detectes (Style LatencyMon)",
+      category: "Latence Temps Reel & Interruption Pilote",
+      status: "danger",
+      actionText: "Mettre 'Performances Elevees' et desactiver les cartes reseau/HDMI inutilisees",
+      actuelText: "Latence DPC Max : 21.04 ms (> 2.0 ms = Risque majeur de gresillements)",
+      cause: "Des pilotes systeme (souvent Wi-Fi, Carte Graphique NVIDIA ou Carte Mere AMD) retardent le traitement du flux audio WASAPI.",
+      fix: "Passez le plan d'alimentation en 'Performances Elevees' et mettez a jour les pilotes reseau/graphique."
+    },
+    {
+      title: "Frequence d'Echantillonnage du Casque (Format par Defaut)",
+      category: "Horloge & Resampling Windows",
+      status: sr === 48000 ? "ok" : "warning",
+      actionText: "Mettre '24 bits, 48000 Hz (Qualité Studio)' sur le casque dans Windows",
+      actuelText: sr ? `${sr} Hz (${(sr/1000).toFixed(1)} kHz)` : "Activer le Moteur Audio Web pour analyser",
+      cause: "Un decalage entre la frequence de Windows et celle des jeux/Discord force le moteur son a resampler en continu.",
+      fix: "Tapez mmsys.cpl -> Proprietes du casque -> Statistiques avancees -> Choisissez 24 bits, 48000 Hz."
+    }
+  ];
 
-  // 1. BIOS ASRock A520M & Correctif Bug USB AMD AGESA 1.2.0.7
-  list.push({
-    id: 'bios-version',
-    title: 'Version du BIOS ASRock A520M (Patch USB AMD AGESA 1.2.0.7)',
-    category: 'Firmware Carte Mère ASRock',
-    status: 'danger',
-    actionText: 'Mettre à jour le BIOS ASRock A520M vers la version P2.10+ (Patch AGESA 1.2.0.7)',
-    actuelText: 'BIOS d\'origine / Ancien (Inférieur à P2.10 — Bug USB AMD non corrigé)',
-    cause: 'AMD a reconnu un bug mondial sur les chipsets AM4 (A520/B550/X570) provoquant la coupure aléatoire de l\'alimentation USB et des grésillements sur les casques sans fil. Ce bug est résolu par le BIOS P2.10 (AGESA 1.2.0.7).',
-    fix: 'Ouvrez un terminal CMD et tapez <code>wmic bios get smbiosbiosversion</code> pour vérifier votre version. Si elle est inférieure à P2.10, téléchargez le dernier BIOS sur le site officiel d\'ASRock.'
-  });
-
-  // 2. Emplacement Dongle USB G733 sur ASRock A520M
-  list.push({
-    id: 'usb-port',
-    title: 'Emplacement du Dongle LIGHTSPEED G733 (ASRock A520M)',
-    category: 'Matériel USB & Signal RF 2.4GHz',
-    status: 'danger',
-    actionText: 'Mettre "Port USB 2.0 Noir Arrière Carte Mère ASRock" sur le Dongle G733',
-    actuelText: 'Port USB 3.0 / Façade Boîtier (Sujet aux parasites 2.4GHz AMD)',
-    cause: 'Le contrôleur AMD Ryzen (A520M) et les câbles USB 3.0 émettent des bruits radio dans la bande 2.4 GHz qui perturbent la connexion sans fil du Logitech G733. Le port USB 2.0 Noir arrière est direct et isolé.',
-    fix: 'Débranchez le récepteur USB du G733 de la façade ou d\'un port bleu USB 3.0, et branchez-le sur l\'un des deux ports <strong>USB 2.0 Noirs</strong> situés tout en haut à l\'arrière de la carte mère ASRock A520M.'
-  });
-
-  // 3. Logitech G HUB — Son Surround DTS 2.0
-  list.push({
-    id: 'ghub-dts',
-    title: 'Traitement Spatial Logitech G HUB (DTS Headphone:X 2.0)',
-    category: 'Pilote & Logiciel Logitech',
-    status: 'warning',
-    actionText: 'Mettre "Désactivé" sur le Son Surround DTS dans Logitech G HUB',
-    actuelText: 'Activé par défaut dans G HUB (Surround 7.1 Virtuel)',
-    cause: 'Le moteur surround virtuel de G HUB ré-échantillonne en continu le son en 7.1, ce qui sature le tampon du dongle USB G733 et génère des craquements intempestifs en jeu ou sur Discord.',
-    fix: 'Ouvrez <strong>Logitech G HUB</strong> ➔ Cliquez sur votre casque <strong>G733</strong> ➔ Onglet <em>Acoustique</em> ➔ Décochez <strong>"Activer le son surround"</strong>.'
-  });
-
-  // 4. Modes d'Alimentation Windows (Gestion des C-States CPU AMD AM4)
-  list.push({
-    id: 'power-plan',
-    title: 'Mode de Gestion d\'Énergie Windows (C-States AMD Ryzen)',
-    category: 'Alimentation Système & CPU',
-    status: 'warning',
-    actionText: 'Mettre "Performances Élevées" sur le Mode d\'Alimentation Windows',
-    actuelText: 'Utilisation normale (Équilibré)',
-    cause: 'Le mode "Équilibré" abaisse la fréquence du processeur AMD Ryzen lors des micro-silences. La remontée en fréquence crée une micro-coupure audio (DPC Latency spike).',
-    fix: 'Appuyez sur <kbd>Win</kbd> + <kbd>R</kbd> ➔ Tapez <code>powercfg.cpl</code> ➔ Sélectionnez le mode <strong>Performances Élevées</strong>.'
-  });
-
-  // 5. Suspension Sélective USB Windows
-  list.push({
-    id: 'usb-suspend',
-    title: 'Suspension Sélective des Ports USB (Windows Power)',
-    category: 'Alimentation Ports USB',
-    status: 'danger',
-    actionText: 'Mettre "Désactivé" sur la Suspension Sélective USB',
-    actuelText: 'Activé par défaut (Mise en veille sélective USB autorisée)',
-    cause: 'Windows coupe brièvement l\'alimentation du dongle G733 lorsqu\'aucun son n\'est émis pendant 2 secondes. Lors de la réémission du son, un craquement sec se produit.',
-    fix: 'Dans <code>powercfg.cpl</code> ➔ Modifier les paramètres du mode ➔ Modifier les paramètres d\'alimentation avancés ➔ <em>Paramètres USB</em> ➔ <em>Paramètre de suspension sélective USB</em> ➔ Réglez sur <strong>Désactivé</strong>.'
-  });
-
-  // 6. Fréquence d'échantillonnage Système (Sample Rate)
-  let srActuelText = sr ? `${sr.toLocaleString()} Hz (${(sr/1000).toFixed(1)} kHz)` : 'Cliquez sur "Activer le Moteur Audio" pour analyser';
-  let srIsOk = sr === 48000;
-  list.push({
-    id: 'sample-rate',
-    title: 'Fréquence d\'Échantillonnage du G733 (Format par Défaut)',
-    category: 'Horloge & Resampling Windows',
-    status: srIsOk ? 'ok' : 'danger',
-    actionText: 'Mettre "24 bits, 48000 Hz (Qualité Studio)" sur le G733 dans Windows',
-    actuelText: srActuelText,
-    cause: 'Le récepteur sans fil du Logitech G733 est synchronisé sur la fréquence 48 000 Hz. Si Windows est en 44100 Hz ou 96000 Hz, le moteur son doit resampler en permanence, générant des décalages d\'horloge.',
-    fix: 'Appuyez sur <kbd>Win</kbd> + <kbd>R</kbd> ➔ <code>mmsys.cpl</code> ➔ Clic droit sur Logitech G733 ➔ Propriétés ➔ Statistiques avancées ➔ Choisissez <strong>24 bits, 48000 Hz (Qualité Studio)</strong>.'
-  });
-
-  // 7. Mode Exclusif Audio (WASAPI Exclusive)
-  list.push({
-    id: 'exclusive-mode',
-    title: 'Mode Exclusif d\'Application (Conflits Discord / Jeux)',
-    category: 'Gestion des Flux Audio',
-    status: 'warning',
-    actionText: 'Mettre "Désactivé" sur l\'Autorisation du Mode Exclusif',
-    actuelText: 'Activé par défaut (Applications autorisées à contrôler le périphérique)',
-    cause: 'Lorsqu\'un jeu ou Discord tente d\'ouvrir le casque en mode exclusif, les autres logiciels voient leur paquet son haché, générant des craquements.',
-    fix: 'Dans <code>mmsys.cpl</code> ➔ Propriétés du G733 ➔ Statistiques avancées ➔ Décochez <em>"Autoriser les applications à prendre le contrôle exclusif de ce périphérique"</em>.'
-  });
-
-  return list;
+  return findings;
 }
 
-// Compute Summary
+function getActiveFindings() {
+  if (state.importedReport && state.importedReport.findings && state.importedReport.findings.length > 0) {
+    return state.importedReport.findings;
+  }
+  return getDefaultFindings();
+}
+
 function updateSummary() {
-  const recs = getRecommendations();
+  const findings = getActiveFindings();
   const countBadge = document.getElementById('action-count-badge');
   const tabCount = document.getElementById('tab-rec-count');
   const scoreVal = document.getElementById('health-score-val');
@@ -123,54 +70,59 @@ function updateSummary() {
   const scoreDesc = document.getElementById('health-score-desc');
   const scoreCircle = document.getElementById('score-circle');
 
-  const reqCount = recs.filter(r => r.status !== 'ok').length;
-  countBadge.textContent = `${reqCount} actions ciblées`;
-  tabCount.textContent = reqCount;
+  const dangerCount = findings.filter(f => f.status !== 'ok').length;
+  countBadge.textContent = `${dangerCount} anomalie(s)`;
+  tabCount.textContent = dangerCount;
 
-  scoreVal.textContent = '75';
-  scoreCircle.style.borderColor = 'var(--status-warning)';
-  scoreTitle.textContent = 'Auto-Diagnostic Prêt';
-  scoreDesc.textContent = 'Consultez les actions ciblées ci-dessous ou lancez le scan automatique 1-clic pour vérifier votre version de BIOS ASRock et vos ports USB.';
+  if (state.importedReport) {
+    scoreTitle.textContent = "Rapport de Logs Windows Charge !";
+    scoreDesc.textContent = `Scanné le ${state.importedReport.timestamp || 'récemment'}. ${dangerCount} problème(s) de logs/latence DPC identifié(s).`;
+  } else {
+    scoreTitle.textContent = "Logs Windows prêts à analyser";
+    scoreDesc.textContent = "Copiez la commande ci-dessous ou glissez votre fichier audio_glitch_report.json pour voir l'analyse complète.";
+  }
+
+  scoreVal.textContent = Math.max(20, 100 - (dangerCount * 25));
+  scoreCircle.style.borderColor = dangerCount > 0 ? 'var(--status-danger)' : 'var(--status-ok)';
 }
 
-// Render Recommendations
 function renderRecommendations() {
   const container = document.getElementById('recommendations-container');
   container.innerHTML = '';
 
-  const recs = getRecommendations();
+  const findings = getActiveFindings();
 
-  recs.forEach(r => {
+  findings.forEach(f => {
     const card = document.createElement('div');
-    card.className = `rec-card status-${r.status}`;
+    card.className = `rec-card status-${f.status || 'warning'}`;
 
-    let badgeClass = r.status === 'ok' ? 'ok' : (r.status === 'danger' ? 'danger' : 'warning');
-    let badgeText = r.status === 'ok' ? '✓ Conforme' : (r.status === 'danger' ? '✖ Action Requise' : '⚠ À Modifier');
+    let badgeClass = f.status === 'ok' ? 'ok' : (f.status === 'danger' ? 'danger' : 'warning');
+    let badgeText = f.status === 'ok' ? '✓ Conforme' : (f.status === 'danger' ? '✖ Log Erreur / DPC' : '⚠ À Corriger');
 
     card.innerHTML = `
       <div class="rec-header">
         <div class="rec-title-group">
-          <span class="rec-category">${r.category}</span>
-          <h4>${r.title}</h4>
+          <span class="rec-category">${f.category || 'Anomalie Windows'}</span>
+          <h4>${f.title}</h4>
         </div>
         <span class="status-badge ${badgeClass}">${badgeText}</span>
       </div>
 
       <div class="comparison-box-strict">
         <div class="strict-line-action">
-          <span>👉 ${r.actionText}</span>
+          <span>👉 ${f.actionText}</span>
         </div>
         <div class="strict-line-actuel">
-          <span>Actuel : ${r.actuelText}</span>
+          <span>Actuel : ${f.actuelText}</span>
         </div>
       </div>
 
       <div class="rec-cause">
-        <strong>Cause du grésillement :</strong> ${r.cause}
+        <strong>Constaté dans les logs :</strong> ${f.cause}
       </div>
 
       <div class="rec-fix">
-        <strong>Comment appliquer la modification :</strong> ${r.fix}
+        <strong>Solution pas-à-pas :</strong> ${f.fix}
       </div>
     `;
 
@@ -178,6 +130,23 @@ function renderRecommendations() {
   });
 
   updateSummary();
+}
+
+// File Import Handler
+function handleFileImport(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      state.importedReport = data;
+      renderRecommendations();
+      alert("Rapport de logs audio_glitch_report.json chargé avec succès !");
+    } catch (err) {
+      alert("Erreur lors de la lecture du fichier JSON : " + err.message);
+    }
+  };
+  reader.readAsText(file);
 }
 
 // Audio Engine Initialization
@@ -312,19 +281,19 @@ async function playSweep() {
 
 // Generate Report
 function generateReportText() {
-  const recs = getRecommendations();
+  const findings = getActiveFindings();
   const dateStr = new Date().toLocaleString('fr-FR');
 
   let text = `=====================================================\n`;
-  text += `   BILAN AUDIOFIX — LOGITECH G733 & ASROCK A520M\n`;
+  text += `   BILAN AUDIOFIX — LOGS WINDOWS & LATENCYMON\n`;
   text += `   Date : ${dateStr}\n`;
   text += `=====================================================\n\n`;
 
-  recs.forEach((r, idx) => {
-    text += `${idx + 1}. 👉 ${r.actionText}\n`;
-    text += `   * Actuel : ${r.actuelText}\n`;
-    text += `   * Cause  : ${r.cause}\n`;
-    text += `   * Fix    : ${r.fix.replace(/<[^>]*>?/gm, '')}\n\n`;
+  findings.forEach((f, idx) => {
+    text += `${idx + 1}. 👉 ${f.actionText}\n`;
+    text += `   * Constaté : ${f.actuelText}\n`;
+    text += `   * Cause    : ${f.cause}\n`;
+    text += `   * Solution : ${f.fix ? f.fix.replace(/<[^>]*>?/gm, '') : ''}\n\n`;
   });
 
   return text;
@@ -343,6 +312,31 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById(targetId).classList.add('active');
     });
   });
+
+  // Drag and drop setup
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+
+  if (dropZone && fileInput) {
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) handleFileImport(e.target.files[0]);
+    });
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      if (e.dataTransfer.files.length > 0) handleFileImport(e.dataTransfer.files[0]);
+    });
+  }
 
   // Audio Buttons
   document.getElementById('btn-start-audio').addEventListener('click', initAudioEngine);

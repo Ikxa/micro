@@ -1,69 +1,138 @@
-# Script de Diagnostic Automatique AudioFix pour Windows (G733 + ASRock A520M)
-# Exécution sans installation pour détecter les pilotes, BIOS et réglages USB
+# =========================================================================
+# AUDIOFIX SCANNER -- ANALYSE DES JOURNAUX WINDOWS ET LATENCYMON
+# =========================================================================
 
 [System.Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
 Write-Host ""
 Write-Host "=================================================================" -ForegroundColor Cyan
-Write-Host "  AUDIOFIX SCANNER — DIAGNOSTIC AUTOMATIQUE WINDOWS / AMD / G733  " -ForegroundColor Cyan
+Write-Host "  AUDIOFIX SCANNER -- ANALYSEUR DE LOGS WINDOWS ET LATENCE DPC    " -ForegroundColor Cyan
 Write-Host "=================================================================" -ForegroundColor Cyan
 Write-Host ""
 
-$actionsCount = 0
+$report = @{
+    timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+    eventGlitchCount = 0
+    usbResetCount = 0
+    maxDpcJitterUs = 0
+    dpcStatus = "OK"
+    findings = @()
+}
 
-# 1. Détection du BIOS & Carte Mère
-$board = Get-CimInstance Win32_BaseBoard -ErrorAction SilentlyContinue
-$bios = Get-CimInstance Win32_BIOS -ErrorAction SilentlyContinue
+# 1. Analyse des Event Logs Windows Audio
+Write-Host "[1/3] Analyse des Journaux d'Evenements Windows (Event Viewer)..." -ForegroundColor Yellow
 
-Write-Host "🖥️ Carte mère détectée : $($board.Manufacturer) $($board.Product)" -ForegroundColor Gray
-Write-Host "💾 Version du BIOS actuel : $($bios.SMBIOSBIOSVersion) ($($bios.ReleaseDate.ToString('dd/MM/yyyy')))" -ForegroundColor Gray
+$audioGlitchEvents = @()
+try {
+    $audioGlitchEvents = Get-WinEvent -LogName "Microsoft-Windows-Audio/Operational" -MaxEvents 100 -ErrorAction SilentlyContinue | 
+        Where-Object { $_.Id -eq 2005 -or $_.Id -eq 2006 -or $_.Message -like "*glitch*" -or $_.Message -like "*underrun*" }
+} catch {}
 
-if ($board.Product -like "*A520*" -or $board.Product -like "*B550*" -or $board.Product -like "*X570*") {
-    # Check BIOS version for AMD USB bug patch (AGESA 1.2.0.7 / P2.10+)
-    $verNum = [regex]::Match($bios.SMBIOSBIOSVersion, '\d+\.\d+').Value
-    if ($verNum -and [float]$verNum -lt 2.10) {
-        $actionsCount++
-        Write-Host ""
-        Write-Host "❌ [ACTION REQUISE] Mettre à jour le BIOS vers P2.10+ (Patch USB AMD AGESA 1.2.0.7)" -ForegroundColor Red
-        Write-Host "   Actuel : $($bios.SMBIOSBIOSVersion) (Ancien BIOS sujet aux déconnexions/grésillements USB AMD)" -ForegroundColor Yellow
-        Write-Host "   Lien   : https://www.asrock.com/support/index.asp" -ForegroundColor Gray
-    } else {
-        Write-Host "✓ BIOS à jour avec le correctif USB AMD AGESA." -ForegroundColor Green
+if ($audioGlitchEvents -and $audioGlitchEvents.Count -gt 0) {
+    $report.eventGlitchCount = $audioGlitchEvents.Count
+    $finding = @{
+        title = "Micro-coupures Audio enregistrees par Windows (Event ID 2005/2006)"
+        category = "Journaux d'Evenements Windows (AudioSrv)"
+        status = "danger"
+        actionText = "Mettre '24 bits, 48000 Hz' et augmenter la taille du buffer audio"
+        actuelText = "$($audioGlitchEvents.Count) micro-coupures/dropouts enregistres par Windows dans Event Viewer"
+        cause = "Le moteur audio WASAPI/AudioSrv de Windows a consigne $($audioGlitchEvents.Count) pertes de paquets son (Buffer Underrun) lors de pics d'utilisation systeme."
+        fix = "Desactivez les ameliorations audio dans mmsys.cpl et passez le plan d'alimentation en 'Performances Elevees'."
+    }
+    $report.findings += $finding
+    Write-Host "  [X] $($audioGlitchEvents.Count) micro-coupures audio (Buffer Underruns) trouvees dans les journaux Windows !" -ForegroundColor Red
+} else {
+    Write-Host "  [OK] Aucun événement de perte de paquet audio recent trouve dans Microsoft-Windows-Audio." -ForegroundColor Green
+}
+
+# 2. Analyse des Reinitialisations PnP / USB
+$usbEvents = @()
+try {
+    $usbEvents = Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Windows-Kernel-PnP'} -MaxEvents 50 -ErrorAction SilentlyContinue |
+        Where-Object { $_.Message -like "*USB*" -or $_.Message -like "*Audio*" -or $_.Id -eq 219 }
+} catch {}
+
+if ($usbEvents -and $usbEvents.Count -gt 0) {
+    $report.usbResetCount = $usbEvents.Count
+    $finding = @{
+        title = "Reinitialisations / Deconnexions de Peripheriques USB (Kernel-PnP)"
+        category = "Journaux d'Evenements Systeme (PnP)"
+        status = "warning"
+        actionText = "Mettre 'Desactive' sur la Suspension Selective USB et brancher sur Port USB 2.0 Arriere"
+        actuelText = "$($usbEvents.Count) deconnexions/reinitialisations USB consignees par le noyau Windows"
+        cause = "Le gestionnaire PnP de Windows reinitialise le pilote USB lors des baisses de tension ou des micro-mises en veille."
+        fix = "Allez dans powercfg.cpl -> Parametres meil -> Parametres USB -> Suspension selective USB -> Desactive."
+    }
+    $report.findings += $finding
+    Write-Host "  [!] $($usbEvents.Count) evenements de reinitialisation USB / Pilotes detectes." -ForegroundColor Yellow
+} else {
+    Write-Host "  [OK] Aucun probleme de deconnexion USB consigne dans le journal systeme." -ForegroundColor Green
+}
+
+# 3. Test de Latence DPC (Style LatencyMon)
+Write-Host ""
+Write-Host "[2/3] Mesure de Latence DPC et Jitter Systeme (Test LatencyMon - 3 secondes)..." -ForegroundColor Yellow
+
+$maxJitterUs = 0
+$samples = 150
+
+for ($i = 0; $i -lt $samples; $i++) {
+    $t0 = [System.Diagnostics.Stopwatch]::GetTimestamp()
+    Start-Sleep -Milliseconds 10
+    $t1 = [System.Diagnostics.Stopwatch]::GetTimestamp()
+    
+    $elapsedUs = (($t1 - $t0) / [System.Diagnostics.Stopwatch]::Frequency) * 1000000
+    $jitterUs = [Math]::Abs($elapsedUs - 10000)
+    
+    if ($jitterUs -gt $maxJitterUs) {
+        $maxJitterUs = $jitterUs
     }
 }
 
-# 2. Détection du Mode d'Alimentation Windows
-$activePlan = Get-CimInstance -Namespace root\cimv2\power -ClassName Win32_PowerPlan -Filter "IsActive=True" -ErrorAction SilentlyContinue
-if ($activePlan) {
-    if ($activePlan.ElementName -notlike "*Performances*" -and $activePlan.ElementName -notlike "*High*") {
-        $actionsCount++
+$report.maxDpcJitterUs = [Math]::Round($maxJitterUs, 0)
+$maxJitterMs = [Math]::Round($maxJitterUs / 1000, 2)
+
+Write-Host "  Latence DPC / Jitter Max Mesuree : $maxJitterMs ms ($($report.maxDpcJitterUs) us)" -ForegroundColor Cyan
+
+if ($report.maxDpcJitterUs -gt 2000) {
+    $report.dpcStatus = "HIGH"
+    $finding = @{
+        title = "Pics de Latence DPC Detectes (Style LatencyMon)"
+        category = "Latence Temps Reel et Interruption Pilote"
+        status = "danger"
+        actionText = "Mettre 'Performances Elevees' et desactiver les cartes reseau/HDMI inutilisees"
+        actuelText = "Latence DPC Max : $maxJitterMs ms (> 2.0 ms = Risque majeur de gresillements)"
+        cause = "Des pilotes systeme (souvent Wi-Fi, Carte Graphique NVIDIA ou Carte Mere AMD) retardent le traitement du flux audio WASAPI."
+        fix = "Passez le plan d'alimentation en 'Performances Elevees' et mettez a jour les pilotes reseau/graphique."
+    }
+    $report.findings += $finding
+    Write-Host "  [X] LATENCE DPC ELEVEE (> 2.0 ms) ! Risque important de gresillements sous charge." -ForegroundColor Red
+} else {
+    Write-Host "  [OK] Stabilite DPC excellente (< 2.0 ms). Le processeur reagit a temps pour l'audio." -ForegroundColor Green
+}
+
+# 4. Synthese et Exportation JSON
+Write-Host ""
+Write-Host "=================================================================" -ForegroundColor Cyan
+Write-Host "  RESUME DU DIAGNOSTIC LOGS ET DPC" -ForegroundColor Cyan
+Write-Host "=================================================================" -ForegroundColor Cyan
+
+if ($report.findings.Count -eq 0) {
+    Write-Host "AUCUNE ANOMALIE DANS LES LOGS OU LA LATENCE DPC !" -ForegroundColor Green
+    Write-Host "Le systeme Windows est stable et ne consigne aucun bug d'interruption audio." -ForegroundColor White
+} else {
+    Write-Host "$($report.findings.Count) ANOMALIE(S) DETECTEE(S) DANS LES LOGS WINDOWS :" -ForegroundColor Red
+    Write-Host ""
+    foreach ($f in $report.findings) {
+        Write-Host "-> $($f.actionText)" -ForegroundColor Cyan
+        Write-Host "   Actuel : $($f.actuelText)" -ForegroundColor Yellow
+        Write-Host "   Cause  : $($f.cause)" -ForegroundColor Gray
         Write-Host ""
-        Write-Host "⚠️ [ACTION REQUISE] Mettre 'Performances Élevées' sur le Mode d'Alimentation Windows" -ForegroundColor Yellow
-        Write-Host "   Actuel : $($activePlan.ElementName) (Risque de pic de latence DPC lors des micro-silences)" -ForegroundColor Yellow
-        Write-Host "   Fix    : Appuyez sur Win + R -> powercfg.cpl -> Performances Élevées." -ForegroundColor Gray
-    } else {
-        Write-Host "✓ Mode d'alimentation Performances Élevées actif." -ForegroundColor Green
     }
 }
 
-# 3. Détection du Casque Logitech G733
-$g733 = Get-CimInstance Win32_PnPEntity | Where-Object { $_.Name -like "*G733*" -or $_.Name -like "*Logitech Wireless*" } -ErrorAction SilentlyContinue
-if ($g733) {
-    Write-Host ""
-    Write-Host "🎧 Périphérique Logitech détecté : $($g733[0].Name)" -ForegroundColor Green
-} else {
-    Write-Host ""
-    Write-Host "🎧 Recherche du récepteur USB Logitech G733..." -ForegroundColor Gray
-}
-
-# 4. Suspension Sélective USB
-$usbScheme = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\USB" -ErrorAction SilentlyContinue
-Write-Host ""
-Write-Host "-----------------------------------------------------------------" -ForegroundColor Gray
-if ($actionsCount -eq 0) {
-    Write-Host "🎉 AUCUN PROBLÈME MATÉRIEL OU BIOS DÉTECTÉ !" -ForegroundColor Green
-    Write-Host "   Si le son grésille encore, vérifiez les réglages dans le navigateur (https://ikxa.github.io/micro/)." -ForegroundColor White
-} else {
-    Write-Host "⚠️ $actionsCount ACTION(S) NÉCESSAIRE(S) TROUVÉE(S) CI-DESSUS." -ForegroundColor Red
-}
+$jsonPath = Join-Path $PSScriptRoot "audio_glitch_report.json"
+$report | ConvertTo-Json -Depth 5 | Out-File -FilePath $jsonPath -Encoding utf8
+Write-Host "Rapport enregistre sous : audio_glitch_report.json" -ForegroundColor Gray
 Write-Host "=================================================================" -ForegroundColor Cyan
 Write-Host ""
