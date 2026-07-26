@@ -71,23 +71,25 @@ function updateSummary() {
   const scoreCircle = document.getElementById('score-circle');
 
   const dangerCount = findings.filter(f => f.status !== 'ok').length;
-  countBadge.textContent = `${dangerCount} anomalie(s)`;
-  tabCount.textContent = dangerCount;
+
+  if (countBadge) countBadge.textContent = `${dangerCount} anomalie(s)`;
+  if (tabCount) tabCount.textContent = dangerCount;
 
   if (state.importedReport) {
-    scoreTitle.textContent = "Rapport de Logs Windows Charge !";
-    scoreDesc.textContent = `Scanné le ${state.importedReport.timestamp || 'récemment'}. ${dangerCount} problème(s) de logs/latence DPC identifié(s).`;
+    if (scoreTitle) scoreTitle.textContent = "Rapport de Logs Windows Charge !";
+    if (scoreDesc) scoreDesc.textContent = `Scanné le ${state.importedReport.timestamp || 'récemment'}. ${dangerCount} problème(s) de logs/latence DPC identifié(s).`;
   } else {
-    scoreTitle.textContent = "Logs Windows prêts à analyser";
-    scoreDesc.textContent = "Copiez la commande ci-dessous ou glissez votre fichier audio_glitch_report.json pour voir l'analyse complète.";
+    if (scoreTitle) scoreTitle.textContent = "Logs Windows prêts à analyser";
+    if (scoreDesc) scoreDesc.textContent = "Copiez la commande ci-dessous ou glissez votre fichier audio_glitch_report.json pour voir l'analyse complète.";
   }
 
-  scoreVal.textContent = Math.max(20, 100 - (dangerCount * 25));
-  scoreCircle.style.borderColor = dangerCount > 0 ? 'var(--status-danger)' : 'var(--status-ok)';
+  if (scoreVal) scoreVal.textContent = Math.max(20, 100 - (dangerCount * 25));
+  if (scoreCircle) scoreCircle.style.borderColor = dangerCount > 0 ? 'var(--status-danger)' : 'var(--status-ok)';
 }
 
 function renderRecommendations() {
   const container = document.getElementById('recommendations-container');
+  if (!container) return;
   container.innerHTML = '';
 
   const findings = getActiveFindings();
@@ -177,14 +179,18 @@ async function initAudioEngine() {
 
   state.detectedChannels = state.audioCtx.destination.maxChannelCount || 2;
 
-  document.getElementById('detected-sample-rate').textContent = `${state.detectedSampleRate} Hz`;
-  document.getElementById('detected-latency').textContent = `~${state.detectedLatency.toFixed(1)} ms`;
+  const srEl = document.getElementById('detected-sample-rate');
+  const latEl = document.getElementById('detected-latency');
+  const devEl = document.getElementById('detected-output-device');
+
+  if (srEl) srEl.textContent = `${state.detectedSampleRate} Hz`;
+  if (latEl) latEl.textContent = `~${state.detectedLatency.toFixed(1)} ms`;
 
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
     const outputs = devices.filter(d => d.kind === 'audiooutput');
-    if (outputs.length > 0 && outputs[0].label) {
-      document.getElementById('detected-output-device').textContent = outputs[0].label.substring(0, 22) + '...';
+    if (outputs.length > 0 && outputs[0].label && devEl) {
+      devEl.textContent = outputs[0].label.substring(0, 22) + '...';
     }
   } catch (err) {}
 
@@ -309,7 +315,8 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       tab.classList.add('active');
       const targetId = `tab-${tab.getAttribute('data-tab')}`;
-      document.getElementById(targetId).classList.add('active');
+      const targetContent = document.getElementById(targetId);
+      if (targetContent) targetContent.classList.add('active');
     });
   });
 
@@ -339,48 +346,71 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Audio Buttons
-  document.getElementById('btn-start-audio').addEventListener('click', initAudioEngine);
+  const startBtn = document.getElementById('btn-start-audio');
+  if (startBtn) startBtn.addEventListener('click', initAudioEngine);
 
   const freqSlider = document.getElementById('freq-slider');
-  freqSlider.addEventListener('input', (e) => {
-    document.getElementById('freq-val').textContent = `${e.target.value} Hz`;
-    if (state.activeSource && state.activeSource.frequency) {
-      state.activeSource.frequency.setValueAtTime(e.target.value, state.audioCtx.currentTime);
-    }
-  });
+  if (freqSlider) {
+    freqSlider.addEventListener('input', (e) => {
+      const fVal = document.getElementById('freq-val');
+      if (fVal) fVal.textContent = `${e.target.value} Hz`;
+      if (state.activeSource && state.activeSource.frequency) {
+        state.activeSource.frequency.setValueAtTime(e.target.value, state.audioCtx.currentTime);
+      }
+    });
+  }
 
   const volSlider = document.getElementById('volume-slider');
-  volSlider.addEventListener('input', (e) => {
-    document.getElementById('vol-val').textContent = `${e.target.value}%`;
-    if (state.masterGain) {
-      state.masterGain.gain.setValueAtTime(e.target.value / 100, state.audioCtx.currentTime);
-    }
-  });
+  if (volSlider) {
+    volSlider.addEventListener('input', (e) => {
+      const vVal = document.getElementById('vol-val');
+      if (vVal) vVal.textContent = `${e.target.value}%`;
+      if (state.masterGain) {
+        state.masterGain.gain.setValueAtTime(e.target.value / 100, state.audioCtx.currentTime);
+      }
+    });
+  }
 
-  document.getElementById('btn-play-tone').addEventListener('click', () => playTone(parseInt(freqSlider.value, 10)));
-  document.getElementById('btn-play-sweep').addEventListener('click', playSweep);
-  document.getElementById('btn-stop-audio').addEventListener('click', stopActiveSource);
+  const playToneBtn = document.getElementById('btn-play-tone');
+  if (playToneBtn) playToneBtn.addEventListener('click', () => playTone(parseInt(freqSlider ? freqSlider.value : 440, 10)));
+  
+  const sweepBtn = document.getElementById('btn-play-sweep');
+  if (sweepBtn) sweepBtn.addEventListener('click', playSweep);
+
+  const stopBtn = document.getElementById('btn-stop-audio');
+  if (stopBtn) stopBtn.addEventListener('click', stopActiveSource);
 
   // Report Modal
   const modal = document.getElementById('modal-report');
-  document.getElementById('btn-export-report').addEventListener('click', () => {
-    document.getElementById('report-text').textContent = generateReportText();
-    modal.classList.add('active');
-  });
+  const exportBtn = document.getElementById('btn-export-report');
+  if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+      const repText = document.getElementById('report-text');
+      if (repText) repText.textContent = generateReportText();
+      if (modal) modal.classList.add('active');
+    });
+  }
 
-  document.getElementById('btn-close-modal').addEventListener('click', () => modal.classList.remove('active'));
+  const closeModalBtn = document.getElementById('btn-close-modal');
+  if (closeModalBtn) closeModalBtn.addEventListener('click', () => modal && modal.classList.remove('active'));
 
-  document.getElementById('btn-copy-report').addEventListener('click', () => {
-    navigator.clipboard.writeText(generateReportText()).then(() => alert("Bilan copié !"));
-  });
+  const copyReportBtn = document.getElementById('btn-copy-report');
+  if (copyReportBtn) {
+    copyReportBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(generateReportText()).then(() => alert("Bilan copié !"));
+    });
+  }
 
-  document.getElementById('btn-download-report').addEventListener('click', () => {
-    const blob = new Blob([generateReportText()], { type: 'text/plain;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `AudioFix_Bilan_${Date.now()}.txt`;
-    a.click();
-  });
+  const downloadReportBtn = document.getElementById('btn-download-report');
+  if (downloadReportBtn) {
+    downloadReportBtn.addEventListener('click', () => {
+      const blob = new Blob([generateReportText()], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `AudioFix_Bilan_${Date.now()}.txt`;
+      a.click();
+    });
+  }
 
   // Initial Render
   renderRecommendations();

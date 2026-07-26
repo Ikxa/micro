@@ -41,6 +41,39 @@
       </div>
     </header>
 
+    <!-- Top Summary Banner -->
+    <section class="summary-banner">
+      <div class="score-card">
+        <div class="score-circle" id="score-circle">
+          <span id="health-score-val">--</span>
+          <small>/ 100</small>
+        </div>
+        <div class="score-info">
+          <h3 id="health-score-title">Logs Windows prêts à analyser</h3>
+          <p id="health-score-desc">Copiez la commande ci-dessous ou glissez votre fichier audio_glitch_report.json pour voir l'analyse complète.</p>
+        </div>
+      </div>
+
+      <div class="live-status-pills">
+        <div class="pill">
+          <span class="pill-label">Fréquence Détectée</span>
+          <span class="pill-value highlight" id="detected-sample-rate">Cliquez sur Démarrer</span>
+        </div>
+        <div class="pill">
+          <span class="pill-label">Latence Tampon</span>
+          <span class="pill-value" id="detected-latency">-- ms</span>
+        </div>
+        <div class="pill">
+          <span class="pill-label">Périphérique Détecté</span>
+          <span class="pill-value" id="detected-output-device">Casque / G733</span>
+        </div>
+        <div class="pill">
+          <span class="pill-label">Actions Requises</span>
+          <span class="pill-value danger-text" id="action-count-badge">0 anomalie(s)</span>
+        </div>
+      </div>
+    </section>
+
     <!-- Scanner Command Card -->
     <section class="auto-scan-card">
       <div class="scan-info">
