@@ -20,7 +20,7 @@ $report = @{
 }
 
 # 1. Analyse des Event Logs Windows Audio
-Write-Host "[1/3] Analyse des Journaux d'Evenements Windows (Event Viewer)..." -ForegroundColor Yellow
+Write-Host "[1/4] Analyse des Journaux d'Evenements Windows (Event Viewer)..." -ForegroundColor Yellow
 
 $audioGlitchEvents = @()
 try {
@@ -58,10 +58,10 @@ if ($usbEvents -and $usbEvents.Count -gt 0) {
         title = "Reinitialisations / Deconnexions de Peripheriques USB (Kernel-PnP)"
         category = "Journaux d'Evenements Systeme (PnP)"
         status = "warning"
-        actionText = "Mettre 'Desactive' sur la Suspension Selective USB et brancher sur Port USB 2.0 Arriere"
+        actionText = "Mettre 'Desactive' sur la Suspension Selective USB et essayer le Pilote Audio Generique Microsoft"
         actuelText = "$($usbEvents.Count) deconnexions/reinitialisations USB consignees par le noyau Windows"
-        cause = "Le gestionnaire PnP de Windows reinitialise le pilote USB lors des baisses de tension ou des micro-mises en veille."
-        fix = "Allez dans powercfg.cpl -> Parametres avances -> Parametres USB -> Suspension selective USB -> Desactive."
+        cause = "Le gestionnaire PnP de Windows reinitialise le pilote USB lors des baisses de tension ou des conflits de filtre Logitech G HUB."
+        fix = "Dans Gestionnaire de peripheriques -> Contrôleurs audio -> Clic droit G733 -> Mettre a jour -> Choisir 'Périphérique audio USB générique'."
     }
     $report.findings += $finding
     Write-Host "  [!] $($usbEvents.Count) evenements de reinitialisation USB / Pilotes detectes." -ForegroundColor Yellow
@@ -71,7 +71,7 @@ if ($usbEvents -and $usbEvents.Count -gt 0) {
 
 # 3. Test de Latence DPC (Style LatencyMon)
 Write-Host ""
-Write-Host "[2/3] Mesure de Latence DPC et Jitter Systeme (Test LatencyMon - 3 secondes)..." -ForegroundColor Yellow
+Write-Host "[2/4] Mesure de Latence DPC et Jitter Systeme (Test LatencyMon - 3 secondes)..." -ForegroundColor Yellow
 
 $maxJitterUs = 0
 $samples = 150
@@ -97,13 +97,13 @@ Write-Host "  Latence DPC / Jitter Max Mesuree : $maxJitterMs ms ($($report.maxD
 if ($report.maxDpcJitterUs -gt 2000) {
     $report.dpcStatus = "HIGH"
     $finding = @{
-        title = "Pics de Latence DPC Detectes (Style LatencyMon)"
+        title = "Pics de Latence DPC Detectes (Style LatencyMon : $maxJitterMs ms)"
         category = "Latence Temps Reel et Interruption Pilote"
         status = "danger"
-        actionText = "Mettre 'Performances Elevees' et desactiver les cartes reseau/HDMI inutilisees"
+        actionText = "Mettre 'Mode MSI (Message Signaled Interrupts)' sur la Carte Graphique et desactiver Global C-State"
         actuelText = "Latence DPC Max : $maxJitterMs ms (> 2.0 ms = Risque majeur de gresillements)"
-        cause = "Des pilotes systeme (souvent Wi-Fi, Carte Graphique NVIDIA ou Carte Mere AMD) retardent le traitement du flux audio WASAPI."
-        fix = "Passez le plan d'alimentation en 'Performances Elevees' et mettez a jour les pilotes reseau/graphique."
+        cause = "Les interruptions de la carte graphique NVIDIA/AMD ou les C-States du CPU AMD Ryzen retardent le processeur audio."
+        fix = "Activez le mode MSI sur le GPU NVIDIA avec MSI Utility v3, et desactivez 'Global C-State Control' dans le BIOS ASRock."
     }
     $report.findings += $finding
     Write-Host "  [X] LATENCE DPC ELEVEE (> 2.0 ms) ! Risque important de gresillements sous charge." -ForegroundColor Red
@@ -111,7 +111,28 @@ if ($report.maxDpcJitterUs -gt 2000) {
     Write-Host "  [OK] Stabilite DPC excellente (< 2.0 ms). Le processeur reagit a temps pour l'audio." -ForegroundColor Green
 }
 
-# 4. Synthese et Exportation JSON
+# 4. Verification de l'optimisation BCDedit Dynamic Tick
+Write-Host ""
+Write-Host "[3/4] Verification des parametres d'horloge Windows (Dynamic Tick & MMCSS)..." -ForegroundColor Yellow
+
+$bcdDynamicTick = bcdedit /enum | Select-String "disabledynamictick"
+if (-not $bcdDynamicTick) {
+    $finding = @{
+        title = "Optimisation de l'Horloge Systeme Windows (Dynamic Tick)"
+        category = "Horloge Kernel Windows"
+        status = "warning"
+        actionText = "Mettre 'Yes' sur disabledynamictick dans bcdedit"
+        actuelText = "Dynamic Tick Actif (Mise en veille partielle de l'horloge système)"
+        cause = "Le Dynamic Tick fait varier la frequence de l'horloge Windows pour economiser de l'energie, provoquant des micro-jitter audio."
+        fix = "Dans CMD (Admin) tapez : bcdedit /set disabledynamictick yes"
+    }
+    $report.findings += $finding
+    Write-Host "  [!] Dynamic Tick actif (Peut causer des micro-retards de timer audio)." -ForegroundColor Yellow
+} else {
+    Write-Host "  [OK] Dynamic Tick desactive dans bcdedit." -ForegroundColor Green
+}
+
+# 5. Synthese et Exportation JSON
 Write-Host ""
 Write-Host "=================================================================" -ForegroundColor Cyan
 Write-Host "  RESUME DU DIAGNOSTIC LOGS ET DPC" -ForegroundColor Cyan
@@ -131,7 +152,6 @@ if ($report.findings.Count -eq 0) {
     }
 }
 
-# Handle PSScriptRoot fallback when executed via iex
 $baseDir = $PSScriptRoot
 if (-not $baseDir) {
     $baseDir = (Get-Location).Path
