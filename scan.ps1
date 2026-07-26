@@ -42,7 +42,7 @@ if ($audioGlitchEvents -and $audioGlitchEvents.Count -gt 0) {
     $report.findings += $finding
     Write-Host "  [X] $($audioGlitchEvents.Count) micro-coupures audio (Buffer Underruns) trouvees dans les journaux Windows !" -ForegroundColor Red
 } else {
-    Write-Host "  [OK] Aucun événement de perte de paquet audio recent trouve dans Microsoft-Windows-Audio." -ForegroundColor Green
+    Write-Host "  [OK] Aucun evenement de perte de paquet audio recent trouve dans Microsoft-Windows-Audio." -ForegroundColor Green
 }
 
 # 2. Analyse des Reinitialisations PnP / USB
@@ -61,7 +61,7 @@ if ($usbEvents -and $usbEvents.Count -gt 0) {
         actionText = "Mettre 'Desactive' sur la Suspension Selective USB et brancher sur Port USB 2.0 Arriere"
         actuelText = "$($usbEvents.Count) deconnexions/reinitialisations USB consignees par le noyau Windows"
         cause = "Le gestionnaire PnP de Windows reinitialise le pilote USB lors des baisses de tension ou des micro-mises en veille."
-        fix = "Allez dans powercfg.cpl -> Parametres meil -> Parametres USB -> Suspension selective USB -> Desactive."
+        fix = "Allez dans powercfg.cpl -> Parametres avances -> Parametres USB -> Suspension selective USB -> Desactive."
     }
     $report.findings += $finding
     Write-Host "  [!] $($usbEvents.Count) evenements de reinitialisation USB / Pilotes detectes." -ForegroundColor Yellow
@@ -131,8 +131,19 @@ if ($report.findings.Count -eq 0) {
     }
 }
 
-$jsonPath = Join-Path $PSScriptRoot "audio_glitch_report.json"
-$report | ConvertTo-Json -Depth 5 | Out-File -FilePath $jsonPath -Encoding utf8
-Write-Host "Rapport enregistre sous : audio_glitch_report.json" -ForegroundColor Gray
+# Handle PSScriptRoot fallback when executed via iex
+$baseDir = $PSScriptRoot
+if (-not $baseDir) {
+    $baseDir = (Get-Location).Path
+}
+
+$jsonPath = Join-Path $baseDir "audio_glitch_report.json"
+try {
+    $report | ConvertTo-Json -Depth 5 | Out-File -FilePath $jsonPath -Encoding utf8
+    Write-Host "Rapport enregistre avec succes sous : $jsonPath" -ForegroundColor Gray
+} catch {
+    Write-Host "Diagnostic termine." -ForegroundColor Gray
+}
+
 Write-Host "=================================================================" -ForegroundColor Cyan
 Write-Host ""
